@@ -1,0 +1,344 @@
+---
+title: "Dynamic Rebalancing"
+author: "John-Craig Borman"
+date: "8/1/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+
+## Setup
+
+### Libraries
+
+```{r libs, message=FALSE, warning=FALSE}
+# Utility Libraries
+library(xts)
+library(quantmod)
+library(magrittr)
+library(dygraphs)
+library(lubridate)
+
+# Analytics Libraries
+library(PortfolioAnalytics)
+library(PerformanceAnalytics)
+```
+
+```{r parameters}
+tickers <- c("MSFT", "AAPL", "GOOG")
+start_years <- 3 # years of historical returns
+costs <- c(40, 50, 60)
+capital <- 1e7
+
+w_min <- 0.20
+w_max <- 0.40
+w_incr <- 0.05
+```
+
+
+### Preset Functions
+
+#### Mathematical Formulae
+
+To Do
+
+#### Function Defininitions
+
+```{r functions, echo=TRUE, message=FALSE, warning=FALSE}
+# Given a set of portfolio weights and a covariance matrix for those assets
+# -> compute the variance (point in time) of that portfolio
+variance <- function(weights, cov){
+  weights <- as.numeric(weights)
+  as.numeric(t(weights) %*% cov %*% weights)
+}
+
+# Given the mean (mu) and variance (sigma) of a portfolio/asset
+# -> compute the expected utility
+expected_utility <- function(mu, sigma){
+  as.numeric(log10(1 + mu) - ( sigma / (2 * (1 + mu)^2)))
+}
+
+# Given the number of assets (n), a weight range (w_min to w_max) and an increment (w_incr)
+# -> compute all possible state spaces of asset weights.
+get_state_space <- function(n, w_min, w_max, w_incr){
+  require(RcppAlgos)
+  vec <- seq(w_min, w_max, w_incr) # Create vector of possible values for weights
+  permuteGeneral(v = vec,                # Vector to permute
+                 m = n,                  # Choose 'm' weights from the vector of possible weights 'vec'
+                 repetition = TRUE,      # Weights can be repeated
+                 constraintFun = "sum",  # \ 
+                 comparisonFun = "==",   #  } Constrain permutations to sum to 1
+                 limitConstraints = 1)   # /
+}
+
+# Given an optimal expected utility (opt_EU), an expected utility (EU) and the base capital amount (capital)
+# -> compute the certainty equivalent costs - the cost of sub-optimality
+CEC <- function(opt_EU, EU, capital){
+  as.numeric((exp(opt_EU) - exp(EU)) * capital)
+}
+
+# Given the desired weights (w_opt), the current weights (w) and the vector of transaction costs (tc)
+# -> compute the transaction costs to switch to the desired weights
+TC <- function(w_opt, w, tc){
+  w_opt %<>% as.numeric()
+  w %<>% as.numeric()
+  tc %<>% as.numeric()
+  sum(tc * abs(w_opt - w))
+}
+
+# Given a time series of returns (rets) and the point in time (date_end)
+# -> compute the covariance matrix over the time period (date_end - lookback) to (date_end)
+covariance_t <- function(rets, date_end, lookback = years(3)){
+  cov(rets[paste0(date_end - lookback, "/", date_end)])
+}
+
+# Given a covariance matrix (cov_t)
+# -> compute the optimal (minimum variance) portfolio weights
+get_opt_weights <- function(cov_t){
+  w_opt <- solve(cov_t) %*% rep(1, ncol(cov_t))
+  w_opt[,1] / sum(w_opt)
+}
+```
+
+### Data Retrieval
+
+```{r get_data, message=FALSE, warning=FALSE}
+getSymbols(tickers)
+
+pxs <- NULL
+rets <- NULL
+
+# Extract adjusted close prices and returns
+for(ticker in tickers){
+  pxs <- ticker %>% get %>% Ad %>% merge(pxs)
+  rets <- ticker %>% get %>% dailyReturn %>% merge(rets)
+}
+
+colnames(pxs) <- tickers
+colnames(rets) <- tickers
+
+# Preview Data
+plot(pxs)
+plot(rets)
+
+date_start <- pxs %>% index %>% first + years(start_years)
+
+cov_start <- cov(rets[paste0("/",date_start)])
+
+temp <- rets[paste0(date_start,"/")]
+
+template <- xts(x = matrix(data = 0, nrow = nrow(temp), ncol = 3), order.by = index(temp))
+rm(temp)
+
+colnames(template) <- tickers
+```
+
+## Portfolio Optimization
+
+### Minimum Variance Portfolio
+```{r min_var_portfolio}
+opt_w <- get_opt_weights(cov_start)
+```
+
+### Dynamic Rebalancing
+
+#### Portfolio Data
+
+```{r holdings_info}
+## Holdings Information
+weights <- template
+investments <- template
+
+weights[1,] <- opt_w
+investments[1,] <- weights[1,] * capital
+
+## Cost and Statistics Information
+cnames <- c("return", "var", "eu", "opt_var", "opt_eu", "tc", "cec", "costs", "rebalance")
+portfolio_data <- xts(x = matrix(data = 0, nrow = nrow(weights), ncol = length(cnames)),
+                      order.by = index(weights))
+colnames(portfolio_data) <- cnames
+```
+
+#### Minimum Cost Weights
+
+```{r min_cost_weights}
+## Weight to rebalance
+min_cost_weights <- template
+```
+
+#### State Space Data
+
+```{r state_space_info}
+## Holdings Information
+s_weights <- get_state_space(ncol(weights), w_min = w_min, w_max = w_max, w_incr = w_incr) %>% as.data.frame()
+s_investments <- matrix(data = 0, nrow = nrow(s_weights), ncol = ncol(s_weights)) %>% as.data.frame()
+
+## Cost and Statistics Information
+cnames <- c("return", "var", "eu", "tc", "cec", "costs")
+s_portfolio_data <- as.data.frame(matrix(data = 0, nrow = nrow(s_weights), ncol = length(cnames)))
+
+colnames(s_weights) <- tickers
+colnames(s_investments) <- tickers
+colnames(s_portfolio_data) <- cnames
+```
+
+#### Loop through time
+
+```{r main_loop, echo=FALSE, warning=FALSE, include=TRUE}
+# Loop through time
+for(t1 in 2:(nrow(weights))){
+  
+  # Calculate daily portfolio movements
+  current_date <- index(weights)[t1]
+  investments[t1,] <- investments[t1 - 1,] * as.numeric(1 + rets[current_date,])
+  weights[t1,] <- investments[t1,] / sum(investments[t1,])
+  portfolio_data[t1, "return"] <- (sum(investments[t1,]) / sum(investments[t1 - 1,])) - 1
+  
+  # Get current covariance matrix and mean return of portfolio
+  cov_t <- covariance_t(rets, current_date)
+  mean_ret <- mean(portfolio_data$return[2:t1])
+  
+  # Add Information to Portfolio Data
+  portfolio_data$var[t1] <- variance(weights[t1,], cov_t)
+  portfolio_data$eu[t1] <- expected_utility(mean_ret, portfolio_data$var[t1])
+  
+  # Get Current Optimal Portfolio Information
+  opt_w <- get_opt_weights(cov_t)
+  opt_var <- variance(opt_w, cov_t)
+  opt_eu <- expected_utility(mu = mean_ret, sigma = opt_var)
+  
+  # Add Information to Portfolio Data
+  portfolio_data$opt_var[t1] <- opt_var
+  portfolio_data$opt_eu[t1] <- opt_eu
+  
+  # Add information to state space
+  s_portfolio_data$return <- as.numeric(portfolio_data[t1, "return"])
+  s_investments <- s_weights * sum(investments[t1,])
+
+  # Loop through each possible set of weights (each possible state 's' in the set of states 'S')
+  for(s in 1:nrow(s_portfolio_data)){
+    
+    # Calculate variance and E[U] for state space 's'
+    s_portfolio_data$var[s] <- variance(weights = s_weights[s,], cov = cov_t)
+    s_portfolio_data$eu[s] <- expected_utility(mu = mean_ret, sigma = s_portfolio_data$var[s])
+    
+    # Calculate costs to switch to state space 's'
+    s_portfolio_data$tc[s] <- TC(w_opt = weights[t1,], w = s_weights[s,], tc = costs)
+    s_portfolio_data$cec[s] <- CEC(opt_EU = opt_eu, 
+                                   EU = s_portfolio_data$eu[s], 
+                                   capital = sum(investments[t1,]))
+  }
+  
+  # Calculate total costs of switching to each state
+  s_portfolio_data$costs <- rowSums(s_portfolio_data[, c("tc", "cec")])
+  
+  # Identify the minimum cost index and weights
+  min_cost_idx <- which.min(s_portfolio_data$costs)
+  min_cost_weights[t1,] <- s_weights[min_cost_idx,] %>% as.numeric()
+  
+  # Add minimum cost rebalancing to portfolio data
+  portfolio_data[t1, c("tc", "cec")] <- s_portfolio_data[min_cost_idx, c("tc", "cec")] %>% as.numeric()
+  
+  # If a weight exceeds the maximum or minimum individual asset weight (w_max or w_min)
+  # -> rebalance the portfolio
+  if (any(weights[t1,] > w_max) || any(weights[t1,] < w_min)){
+    
+    portfolio_data[t1, "rebalance"] <- 1
+    
+    # The minimum cost weight becomes the new weight
+    weights[t1,] <- min_cost_weights[t1,]  
+    
+     # Adjust the asset investments accordingly
+    investments[t1,] <- weights[t1,] * sum(investments[t1,])
+    
+    # Subtract realized transaction costs from portfolio return
+    portfolio_data[t1, "return"] <- portfolio_data[t1, "return"] - (portfolio_data[t1, "tc"] / 100)
+  
+  }
+}
+```
+
+
+## Analysis of Results
+
+### Extract Data
+
+Collect Returns
+
+```{r collect_returns}
+returns <- portfolio_data$return
+rebalances <- portfolio_data$rebalance %>% subset( (.) %>% equals(1))
+```
+
+### Portfolio Overview
+
+```{r overview, echo=FALSE, fig.keep='last'}
+chart.CumReturns(returns, main = "Cumulative Return")
+addEventLines(events = rebalances, lwd = 0.3)
+addSeries(returns, main = "Daily Return")
+addEventLines(events = rebalances, lwd = 0.3)
+addSeries(weights, main = "Weights")
+addEventLines(events = rebalances, lwd = 0.3)
+```
+
+#### Returns Analysis
+
+##### Stats
+
+```{r return_stats}
+kurtosis(returns)
+skewness(returns)
+SkewnessKurtosisRatio(returns)
+```
+
+##### Distribution
+
+```{r distributions, echo=FALSE}
+chart.ECDF(returns)
+chart.QQPlot(returns, distribution = "norm")
+hist(returns)
+```
+
+#### Portfolio Performance Tables
+
+```{r perf_tables, echo=FALSE}
+table.Stats(returns)
+```
+
+#### Portfolio Performance Charts
+
+```{r perf_charts, echo=FALSE}
+charts.PerformanceSummary(returns, main = "Dynamic Rebalancing")
+charts.RollingPerformance(returns, main = "Dynamic Rebalancing")
+chart.Boxplot(returns)
+
+layout(rbind(c(1,2), c(3,4)))
+chart.Histogram(returns, main = "Plain", methods = NULL)
+chart.Histogram(returns, main = "Density", breaks=40, methods = c("add.density", "add.normal"))
+chart.Histogram(returns, main = "Skew and Kurt", methods = c("add.centered", "add.rug"))
+#chart.Histogram(returns, main = "Risk Measures", methods = c("add.risk"))
+```
+
+#### Portfolio Risk Tables
+
+```{r risk, echo=FALSE}
+table.DownsideRisk(returns)
+table.DownsideRiskRatio(returns)
+table.Drawdowns(returns)
+```
+
+
+
+
+
+
+
+
+
+
+

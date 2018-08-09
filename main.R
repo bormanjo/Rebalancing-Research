@@ -47,14 +47,14 @@ get_opt_weights <- function(cov_t){
 
 # Parameters --------------------------------------------------------------------
 
-tickers <- c("MSFT", "AAPL", "GOOG")
+tickers <- c("XLY", "XLP", "XLE", "XLF", "XLI", "XLB", "XLK", "XLU") # Omit XLC and XLRE
 start_years <- 3
 costs <- c(40, 50, 60)
 capital <- 1e7
 
-w_min <- 0.10
-w_max <- 0.50
-w_incr <- 0.10
+w_min <- 0.0
+w_max <- 0.20
+w_incr <- 0.05
 
 # Data --------------------------------------------------------------------
 
@@ -78,11 +78,11 @@ plot(rets)
 
 date_start <- pxs %>% index %>% first + years(start_years)
 
-cov_start <- cov(rets[paste0("/",date_start)])
+cov_start <- cov(rets[paste0("/", date_start)]) * 100
 
 temp <- rets[paste0(date_start,"/")]
 
-template <- xts(x = matrix(data = 0, nrow = nrow(temp), ncol = 3), order.by = index(temp))
+template <- xts(x = matrix(data = 0, nrow = nrow(temp), ncol = length(tickers)), order.by = index(temp))
 rm(temp)
 
 colnames(template) <- tickers
