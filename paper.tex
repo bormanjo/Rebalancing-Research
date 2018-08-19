@@ -1,0 +1,87 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Dynamic Portfolio Rebalancing with ADP}
+
+
+\author{\IEEEauthorblockN{1\textsuperscript{st} John-Craig Borman}
+\IEEEauthorblockA{\textit{School of Business} \\
+\textit{Stevens Institute of Technology}\\
+Hoboken, New Jersey \\
+jborman@stevens.edu}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Somayeh Moazeni}
+\IEEEauthorblockA{\textit{School of Business} \\
+\textit{Stevens Institute of Technology}\\
+Hoboken, New Jersey \\
+smoazeni@stevens.edu}
+}
+
+
+\maketitle
+
+\begin{abstract}
+This document is a model and instructions for \LaTeX.
+This and the IEEEtran.cls file define the components of your paper [title, text, heads, etc.]. *CRITICAL: Do Not Use Symbols, Special Characters, Footnotes, 
+or Math in Paper Title or Abstract.
+\end{abstract}
+
+\begin{IEEEkeywords}
+component, formatting, style, styling, insert
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+\subsection{Overview}
+
+This paper seeks to implement a robust and systematic solution to the portfolio rebalancing problem using approximate dynamic programming on stochastic processes. 
+
+\subsection{Practical Importance}
+
+Quite simply, anyone who invests money in assets, either directly or indirectly, owns a portfolio. Portfolios, like their underlying assets, have risk and return characteristics that evolve over time. The focus of portfolio rebalancing is then to help the investor successfully navigate a portfolio across market regimes towards a particular risk/return based objective. 
+
+The importance of asset allocation has been a frequently discussed topic in both the academic and professional investing communities. Most notably \cite{b3} identified that asset allocation explains 95\% of the variation in total pension plan returns between 1974-83. Beyond academia, Vanguard Group has been a preeminent voice in the professional community advocating for rebalancing as a means of reducing a portfolio's drift away from its initial asset allocation. "Portfolio drift" can result in the development of undesirable risk-return characteristics over time \cite{b1}. The registered investment advisor suggests that "investors’ focus should be on the asset allocation choice and its implementation using broadly diversified, low-cost portfolios with limited market-timing" \cite{b4}.
+
+While asset allocation has its own area of research on identifying the optimal portfolio, rebalancing strategies seek to maintain the risk-return characteristics of the optimal allocation while minimizing the costs of doing so.
+
+\subsection{Rebalancing Strategies}
+
+Rebalancing strategies generally fall within two categories: fixed and random time.
+
+\paragraph{Fixed Time} Commonly referred to as periodic methods, these strategies rebalance at fixed time intervals typically of the quarterly, semi-annual or annual frequencies, regardless of the magnitude of portfolio drift. Higher frequency intervals can produce unnecessarily high transaction costs while lower frequencies may suffer from increased drift. The distinguishing factor among interval choices comes down to transaction costs \cite{b1}. 
+
+Periodic strategies can produce unnecessary costs
+
+\paragraph{Random Time} 
+
+\section*{References}
+
+Unless there are six authors or more give all authors' names; do not use 
+``et al.''. Papers that have not been published, even if they have been 
+submitted for publication, should be cited as ``unpublished'' \cite{b4}. Papers 
+that have been accepted for publication should be cited as ``in press'' \cite{b5}. 
+Capitalize only the first word in a paper title, except for proper nouns and 
+element symbols.
+
+For papers published in translation journals, please give the English 
+citation first, followed by the original foreign-language citation \cite{b6}.
+
+\begin{thebibliography}{00}
+\bibitem{b1} Jaconetti, Colleen M, et al. Best Practices for Portfolio Rebalancing. Vangaurd, July 2010.
+\bibitem{b2} Pula, Justina \& Berisha, Gentrit \& Ahmeti, Skender. (2012). The Impact of Portfolio Diversification in the Performance and the Risk of Investments of Kosovo Pension Savings Trust. Journal of Business and Economics. 3. 198-211. 10.15341/jbe(2155-7950)/03.03.2012/005. 
+\bibitem{b3} Brinson, Gary P., L. Randolph Hood, and Gilbert L. Beebower, 1986. Determinants of Portfolio Performance. Financial Analysts Journal 42(4): 39–48.
+\bibitem{b4} Davis, Joseph H, et al. The Asset Allocation Debate: Provocative Questions, Enduring Realities. 2007, The Asset Allocation Debate: Provocative Questions, Enduring Realities.
+
+\end{thebibliography}
+
+\end{document}
