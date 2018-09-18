@@ -47,15 +47,10 @@ Prob <- function(x){
 }
 
 
-# Simulate weight movement n-steps into the future
+# Simulate weight movements n-steps into the future fromw_0
 simulate <- function(n, w_0){
-  dw <- rbind(w_0,
-              matrix(nu(N * n, mu, sigma), ncol = N)
-  )
-  rownames(dw) <- 0:n
-  sapply(seq_along(1:N), 
-         function(j) cumsum(dw[,j])
-  )
+  dw <- rbind(w_0, matrix(nu(N * n, mu, sigma), ncol = N))
+  sapply(seq_along(1:N), function(j) cumsum(dw[,j]))
 }
 
 
@@ -134,7 +129,7 @@ J <- function(w_mat, w_opt, W, mean_rets, cov_mat, g, type = c("iter", "recur"))
     
     accum <- 0
     
-    for (t_ in seq_along(1:nrow(w_mat))) {
+    for (t_ in 1:nrow(w_mat)) {
       EG <- EG_t(w_t = w_mat[t_,], w_opt = w_opt, W = W, mean_rets = mean_rets, cov_mat = cov_mat)
       
       if(t_ == nrow(w_mat)) EG <- EG + k
@@ -143,6 +138,10 @@ J <- function(w_mat, w_opt, W, mean_rets, cov_mat, g, type = c("iter", "recur"))
     } 
     
     return(accum)
+  } 
+  
+  helper_apply <- function(w_mat, k = 0){
+    
   }
   
   if (length(type) != 1 && !(type %in% c("iter", "recur"))) stop("Parameter 'type' must be set to 'iter' or 'recur'")
