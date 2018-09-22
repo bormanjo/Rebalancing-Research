@@ -3,8 +3,11 @@ library(RcppAlgos)
 library(magrittr)
 library(foreach)
 library(doSNOW)
+library(quantmod)
 
 # parameters --------------------------------------------------------------
+
+setwd("~/Github/R")
 
 # Asset to Invest in
 tickers <- c("XLK", "XLF", "XLE")
@@ -23,10 +26,14 @@ w_max <- 0.5                   # Maximum asset weight
 w_incr <- 0.01                 # Weight increment size
  
 steps <- 100                   # Number of incremental steps in monte-carlo sim
-paths <- 2                   # Number of paths to simulate per state
+paths <- 2                     # Number of paths to simulate per state
 
 # load pricing data
 source("./pricing-data.R")
+
+rets.weekly <- pxs %>% lapply(weeklyReturn) %>% do.call("cbind", .)
+pxs.weekly <- pxs[index(rets.weekly)]
+
 
 # Load Functions ----------------------------------------------------------
 
